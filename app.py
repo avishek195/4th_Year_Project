@@ -52,8 +52,19 @@ if side_bar == "Home":
                  color: yellow;
             """
         ):
-            inp = st.text_input("input")
-            # print(inp)
+            if "input_text" not in st.session_state:
+                st.session_state.input_text = ""
+
+            # Display text input with session state
+            inp = st.text_input("Input", value=st.session_state.input_text)
+
+        # Button to clear/reset the input field
+        if st.button("Clear data"):
+            for d in os.listdir("tempDir")[:]:
+                os.remove(os.path.join("tempDir",d))
+            st.write("All files have been deleted.")
+            st.session_state.input_text = ""  # Reset the session state value
+            st.rerun()  # Rerun the app to clear the input
         if inp != "":
             client = Groq(api_key=os.getenv("GROQ_API_KEY"))
             completion = client.chat.completions.create(
@@ -78,17 +89,17 @@ if side_bar == "Home":
             # print(completion.choices[0].message.content)
             
             st.write(completion.choices[0].message.content)
-        with stylable_container(
-            key="del_btn",
-            css_styles="""
+        # with stylable_container(
+        #     key="del_btn",
+        #     css_styles="""
             
-            """
-        ):
-            del_btn = st.button("Delete your data button")
-        if del_btn:
-            for d in os.listdir("tempDir")[:]:
-                os.remove(os.path.join("tempDir",d))
-                st.write("")
+        #     """
+        # ):
+        #     del_btn = st.button("Delete your data button")
+        # if del_btn:
+        #     for d in os.listdir("tempDir")[:]:
+        #         os.remove(os.path.join("tempDir",d))
+        #     st.write("All files have been deleted.")
     except:
         pass
 elif side_bar == "About us":
