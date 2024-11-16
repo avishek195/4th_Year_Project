@@ -5,109 +5,93 @@ from groq import Groq
 from dotenv import load_dotenv
 from streamlit_extras.stylable_container import stylable_container
 
+# Load and apply custom CSS from an external file
 with open("app.css") as source_des:
-    st.markdown(f"<style>{source_des.read()}</style>",unsafe_allow_html=True)
+    st.markdown(f"<style>{source_des.read()}</style>", unsafe_allow_html=True)
 
-st.markdown("""### Collage project """,unsafe_allow_html=False)
+# App title
+st.markdown("### College Project", unsafe_allow_html=False)
+
+# Function to load environment variables from .env file
 def configure():
     load_dotenv()
 
 configure()
 
+# Navigation sidebar using stylable container
 with stylable_container(
     key="navbar",
-    css_styles="""
-      div[data-testid="stDecoration"]{
-        color:red
-      }
-    """
+    css_styles="""div[data-testid="stDecoration"] { color: red; }"""
 ):
-    side_bar = st.sidebar.selectbox(
-        "Navigate",
-        ("Home","About us")
-    )
+    side_bar = st.sidebar.selectbox("Navigate", ("Home", "About Us"))
 
+# Home Page functionality
 if side_bar == "Home":
     try:
+        # File uploader for answer scripts
         uploadedfile = st.file_uploader("Upload your answer script")
 
-        if not os.path.exists("tempDir"):
-            os.mkdir("tempDir")
+        # Create a temporary directory for uploaded files
+        temp_dir = "tempDir"
+        if not os.path.exists(temp_dir):
+            os.mkdir(temp_dir)
 
+        if uploadedfile:
+            # Save the uploaded file to the temporary directory
+            file_path = os.path.join(temp_dir, uploadedfile.name)
+            with open(file_path, "wb") as f:
+                f.write(uploadedfile.getbuffer())
 
-        with open(os.path.join("tempDir", uploadedfile.name), "wb") as f:
-            f.write(uploadedfile.getbuffer())
-        
-        with open(os.path.join("tempDir", uploadedfile.name), "rb") as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            text = ""
-            for page_num in range(len(pdf_reader.pages)):
-                page = pdf_reader.pages[page_num]
-                text += page.extract_text()
-            
+            # Read and extract text from the uploaded PDF file
+            with open(file_path, "rb") as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                text = "".join(page.extract_text() for page in pdf_reader.pages)
 
-        with stylable_container(
-            key="input_area",
-            css_styles="""
-                 color: yellow;
-            """
-        ):
-            if "input_text" not in st.session_state:
+            # Stylable container for text input area
+            with stylable_container(
+                key="input_area",
+                css_styles="""color: yellow;"""
+            ):
+                # Maintain text input state across reruns
+                if "input_text" not in st.session_state:
+                    st.session_state.input_text = ""
+
+                # Text input for user input
+                inp = st.text_input("Input", value=st.session_state.input_text)
+
+            # Clear data functionality
+            if st.button("Clear data"):
+                # Delete all files in the temporary directory
+                for file_name in os.listdir(temp_dir):
+                    os.remove(os.path.join(temp_dir, file_name))
+                st.write("All files have been deleted.")
+                
+                # Reset the input field and rerun the app
                 st.session_state.input_text = ""
+                st.experimental_rerun()
 
-            # Display text input with session state
-            inp = st.text_input("Input", value=st.session_state.input_text)
+            # If input is provided, send data to the Groq API
+            if inp.strip():
+                client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+                completion = client.chat.completions.create(
+                    model="llama3-70b-8192",
+                    messages=[
+                        {"role": "user", "content": text},
+                        {"role": "assistant", "content": inp},
+                        {"role": "assistant", "content": "```string"}
+                    ],
+                    stop="```",
+                )
 
-        # Button to clear/reset the input field
-        if st.button("Clear data"):
-            for d in os.listdir("tempDir")[:]:
-                os.remove(os.path.join("tempDir",d))
-            st.write("All files have been deleted.")
-            st.session_state.input_text = ""  # Reset the session state value
-            st.rerun()  # Rerun the app to clear the input
-        if inp != "":
-            client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-            completion = client.chat.completions.create(
-                model="llama3-70b-8192",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": text
-                    },
-                    {
-                        "role": "assistant",
-                        "content": inp
-                    },
-                    {
-                        "role": "assistant",
-                        "content": "```string"
-                    }
-                ],
-                stop="```",
-            )
+                # Display the API response
+                st.write(completion.choices[0].message.content)
+    except Exception as e:
+        # Handle errors gracefully
+        st.error(f"An error occurred: {e}")
 
-            # print(completion.choices[0].message.content)
-            
-            st.write(completion.choices[0].message.content)
-        # with stylable_container(
-        #     key="del_btn",
-        #     css_styles="""
-            
-        #     """
-        # ):
-        #     del_btn = st.button("Delete your data button")
-        # if del_btn:
-        #     for d in os.listdir("tempDir")[:]:
-        #         os.remove(os.path.join("tempDir",d))
-        #     st.write("All files have been deleted.")
-    except:
-        pass
-elif side_bar == "About us":
-    st.write(""" this is About us""")
+# About Us Page
+elif side_bar == "About Us":
+    st.write("This is the About Us section.")
 
-st.write("\n")
-st.write("\n") 
-st.write("\n")
-st.write("\n")
-st.write("\n")
-st.write("\n")
+# Add spacing at the end of the app for better layout
+st.write("\n" * 6)
